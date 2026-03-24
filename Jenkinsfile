@@ -1,11 +1,15 @@
 pipeline {
     agent any
+    
+    environment {
+        // ŠEIT IELIEC TO CEĻU, KO IEGUVI AR 'where.exe pm2'
+        // Uzmanīgi: lieto dubultos slīpsvītras \\
+        PM2 = "C:\\Users\\ernests\\AppData\\Roaming\\npm\\pm2.cmd"
+    }
 
     stages {
         stage('install-pip-deps') {
-            steps {
-                script { installPythonDeps() }
-            }
+            steps { script { installPythonDeps() } }
         }
         stage('deploy-to-dev') {
             steps { script { deployEnv('dev', '7001') } }
@@ -34,44 +38,32 @@ pipeline {
     }
 }
 
-// --- FUNKCIJAS (PRASĪBA: LABĀ PRAKSE - 2 PUNKTI) ---
-
 def installPythonDeps() {
-    echo "Solis: install-pip-deps. Instalējam bibliotēkas.."
+    echo "Instalējam bibliotēkas.."
     dir('python-app-main') {
-        // Klonējam repozitoriju
         git url: 'https://github.com/mtararujs/python-greetings', branch: 'main'
-        
-        // Pārbaudām failus ar 'dir' (Windows ekvivalents 'ls')
         bat 'dir'
-        
-        // Veidojam venv un instalējam requirements
-        bat """
-            python -m venv venv
-            .\\venv\\Scripts\\python -m pip install -r requirements.txt
-        """
+        bat "python -m venv venv && .\\venv\\Scripts\\python -m pip install -r requirements.txt"
     }
 }
 
 def deployEnv(envName, port) {
-    echo "Solis: deploy-to-${envName}. Izvietojam uz portu ${port}.."
+    echo "Izvietojam ${envName} uz portu ${port}.."
     dir("app-${envName}") {
         git url: 'https://github.com/mtararujs/python-greetings', branch: 'main'
         
-        // Apstādinām esošo servisu (ignorējot kļūdu, ja tāda nav)
-        bat "pm2 delete greetings-app-${envName} || set errorlevel=0"
+        // Izmantojam mainīgo ${PM2}
+        bat "\"${PM2}\" delete greetings-app-${envName} || set errorlevel=0"
         
-        // Palaižam izmantojot venv interpretatoru no pirmā soļa
         def venvPath = "${WORKSPACE}\\python-app-main\\venv\\Scripts\\python.exe"
-        bat "pm2 start app.py --name greetings-app-${envName} --interpreter \"${venvPath}\" -- --port ${port}"
+        bat "\"${PM2}\" start app.py --name greetings-app-${envName} --interpreter \"${venvPath}\" -- --port ${port}"
     }
 }
 
 def runTests(envName) {
-    echo "Solis: tests-on-${envName}. Palaižam API testus.."
+    echo "API testi videi ${envName}.."
     dir("tests-${envName}") {
         git url: 'https://github.com/mtararujs/course-js-api-framework', branch: 'main'
-        bat "npm install"
-        bat "npm run greetings greetings_${envName}"
+        bat "npm install && npm run greetings greetings_${envName}"
     }
 }

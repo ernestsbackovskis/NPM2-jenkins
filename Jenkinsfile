@@ -2,9 +2,13 @@ pipeline {
     agent any
     
     environment {
-        // ŠEIT IELIEC TO CEĻU, KO IEGUVI AR 'where.exe pm2'
-        // Uzmanīgi: lieto dubultos slīpsvītras \\
+        // Tā pati PM2 atrašanās vieta
         PM2 = "C:\\Users\\ernests\\AppData\\Roaming\\npm\\pm2.cmd"
+        
+        // ŠIE IR JAUNI: norādām PM2, kur ir tava lietotāja mape
+        HOME = "C:\\Users\\ernests"
+        HOMEDRIVE = "C:"
+        HOMEPATH = "\\Users\\ernests"
     }
 
     stages {
@@ -52,18 +56,9 @@ def deployEnv(envName, port) {
     dir("app-${envName}") {
         git url: 'https://github.com/mtararujs/python-greetings', branch: 'main'
         
-        // Izmantojam mainīgo ${PM2}
-        bat "\"${PM2}\" delete greetings-app-${envName} || set errorlevel=0"
+        // Uzlabota kļūdu ignorēšana: ja neizdodas izdzēst, vienkārši pārejam tālāk (exit 0)
+        bat "\"${PM2}\" delete greetings-app-${envName} || cmd /c \"exit /b 0\""
         
         def venvPath = "${WORKSPACE}\\python-app-main\\venv\\Scripts\\python.exe"
-        bat "\"${PM2}\" start app.py --name greetings-app-${envName} --interpreter \"${venvPath}\" -- --port ${port}"
-    }
-}
-
-def runTests(envName) {
-    echo "API testi videi ${envName}.."
-    dir("tests-${envName}") {
-        git url: 'https://github.com/mtararujs/course-js-api-framework', branch: 'main'
-        bat "npm install && npm run greetings greetings_${envName}"
-    }
-}
+        // Pievienojam pēdiņas ceļam, lai izvairītos no atstarpju problēmām
+        bat "\"${PM2}\" start app.py --name greetings-app-${envName} --inte
